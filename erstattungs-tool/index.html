@@ -1,0 +1,367 @@
+<title>Arztrechnungen Abgleich</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: Kopf mit Kennzahlen → Prüfhinweise → Filter + Tabelle; Bearbeiten als Seitenpanel (mobil: Vollbild) */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --ink:#18221f; --muted:#5b6964; --line:#d9e0dd;
+  --accent:#0f6b5a; --accent-ink:#ffffff; --accent-soft:#dcefe9;
+  --ok:#1f7a3d; --ok-soft:#e1f2e6; --warn:#9a5b00; --warn-soft:#fbefd9; --bad:#b3261e; --bad-soft:#fbe3e1; --info:#2b5c9e; --info-soft:#e2ebf8;
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Public Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111816; --surface:#1a2320; --ink:#e4ece9; --muted:#9aaba5; --line:#2c3935;
+  --accent:#4fc1a6; --accent-ink:#0b1714; --accent-soft:#183a32;
+  --ok:#6fd38f; --ok-soft:#173523; --warn:#f0b65a; --warn-soft:#3a2c12; --bad:#f2887f; --bad-soft:#3d1b18; --info:#8db6ef; --info-soft:#1a2a40;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111816; --surface:#1a2320; --ink:#e4ece9; --muted:#9aaba5; --line:#2c3935;
+  --accent:#4fc1a6; --accent-ink:#0b1714; --accent-soft:#183a32;
+  --ok:#6fd38f; --ok-soft:#173523; --warn:#f0b65a; --warn-soft:#3a2c12; --bad:#f2887f; --bad-soft:#3d1b18; --info:#8db6ef; --info-soft:#1a2a40;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body)}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:22px}
+h1,h2{font-family:var(--f-display);text-wrap:balance;margin:0}
+h1{font-size:clamp(1.6rem,3.5vw,2.2rem);letter-spacing:-.01em}
+h2{font-size:1.05rem}
+.eyebrow{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.head{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:end;justify-content:space-between}
+.head p{margin:4px 0 0;color:var(--muted);max-width:62ch}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+button,.btn{font:600 .88rem var(--f-body);border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.danger{color:var(--bad);border-color:var(--bad)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.kpi{background:var(--surface);padding:14px 16px;display:grid;gap:2px}
+.kpi b{font:500 1.35rem var(--f-mono);font-variant-numeric:tabular-nums}
+.kpi span{font-size:.8rem;color:var(--muted)}
+.checks{display:grid;gap:8px}
+.check{display:flex;gap:12px;align-items:flex-start;padding:10px 14px;border-radius:8px;background:var(--surface);border-left:4px solid var(--line)}
+.check.bad{border-left-color:var(--bad)} .check.warn{border-left-color:var(--warn)} .check.info{border-left-color:var(--info)} .check.ok{border-left-color:var(--ok)}
+.check strong{display:block}
+.check small{color:var(--muted)}
+.check .n{font:500 .85rem var(--f-mono);min-width:2.2em;text-align:right;padding-top:1px}
+.check button{margin-left:auto;flex-shrink:0;padding:4px 10px;font-size:.8rem}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tab{border-radius:999px;padding:5px 12px;font-size:.82rem}
+.tab[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tab .c{font-family:var(--f-mono);opacity:.75;margin-left:4px}
+.toolbar input,.toolbar select{font:inherit;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.tablebox{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+table{width:100%;border-collapse:collapse;min-width:900px}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--surface);position:sticky;top:0}
+td.num,th.num{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.d{font-family:var(--f-mono);font-size:.85rem;white-space:nowrap}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--accent-soft)}
+td .sub{display:block;color:var(--muted);font-size:.8rem}
+.pill{display:inline-block;font-size:.75rem;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-warn{background:var(--warn-soft);color:var(--warn)} .p-bad{background:var(--bad-soft);color:var(--bad)} .p-info{background:var(--info-soft);color:var(--info)} .p-mute{background:var(--bg);color:var(--muted)}
+.flag{color:var(--bad);font-weight:700;margin-left:4px}
+.empty{padding:40px 20px;text-align:center;color:var(--muted)}
+.note{font-size:.82rem;color:var(--muted)}
+/* Panel */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:20}
+.panel{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--surface);z-index:21;overflow-y:auto;padding:22px max(20px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) 20px;padding-top:calc(22px + env(safe-area-inset-top,0px));display:grid;gap:16px;align-content:start;border-left:1px solid var(--line)}
+fieldset{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+legend{font-weight:600;padding:0 6px;font-size:.9rem}
+label{display:grid;gap:3px;font-size:.8rem;color:var(--muted);min-width:0}
+label.full{grid-column:1/-1}
+label input,label select,label textarea{font:15px var(--f-body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:7px 9px;width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between}
+textarea{resize:vertical}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;z-index:30;font-size:.9rem}
+.banner{padding:10px 14px;border-radius:8px;background:var(--warn-soft);color:var(--warn);font-size:.9rem}
+@media (max-width:560px){fieldset{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:no-preference){.panel{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.6}}}
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <div>
+      <div class="eyebrow">BVAEB · Merkur (Kinder) · UNIQA (Tobias)</div>
+      <h1>Arztrechnungen Abgleich</h1>
+      <p>Jede Rechnung einmal erfassen: wann bei der BVAEB eingereicht, was zurückkam, und ob der Rest schon bei der Zusatzversicherung liegt: Merkur für die Kinder, UNIQA für Tobias. Die Zuordnung passiert automatisch über die Person. Die Prüfungen unten laufen bei jeder Änderung automatisch.</p>
+    </div>
+    <div class="actions">
+      <button class="primary" id="btnNew" type="button">+ Rechnung erfassen</button>
+      <button id="btnImport" type="button">Liste einfügen</button>
+      <button id="btnExport" type="button">CSV exportieren</button>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <section class="kpis" aria-label="Kennzahlen">
+    <div class="kpi"><span>Rechnungen gesamt</span><b id="kTotal">–</b></div>
+    <div class="kpi"><span>BVAEB erstattet</span><b id="kSV">–</b></div>
+    <div class="kpi"><span>Merkur erstattet (Kinder)</span><b id="kZV">–</b></div>
+    <div class="kpi"><span>UNIQA erstattet (Tobias)</span><b id="kUQ">–</b></div>
+    <div class="kpi"><span>Selbst getragen</span><b id="kRest">–</b></div>
+    <div class="kpi"><span>Offene Posten</span><b id="kOpen">–</b></div>
+  </section>
+
+  <section aria-labelledby="hChecks" style="display:grid;gap:10px">
+    <h2 id="hChecks">Automatische Prüfungen</h2>
+    <div class="checks" id="checks"></div>
+  </section>
+
+  <section style="display:grid;gap:10px">
+    <div class="toolbar">
+      <div class="tabs" id="tabs" role="group" aria-label="Status-Filter"></div>
+      <div class="actions">
+        <select id="fGes" aria-label="Zusatzversicherung"><option value="">Merkur + UNIQA</option><option>Merkur</option><option>UNIQA</option></select>
+        <select id="fPerson" aria-label="Person"><option value="">Alle Personen</option></select>
+        <input id="fSearch" type="search" placeholder="Arzt, Notiz, Referenz …" aria-label="Suche">
+      </div>
+    </div>
+    <div class="tablebox">
+      <table>
+        <thead><tr>
+          <th>Behandlung</th><th>Person</th><th>Arzt / Fach</th><th class="num">Rechnung</th>
+          <th>BVAEB eingereicht</th><th class="num">BVAEB erstattet</th>
+          <th>Zusatzvers. eingereicht</th><th class="num">Zusatzvers. erstattet</th><th class="num">Rest</th><th>Status</th>
+        </tr></thead>
+        <tbody id="tbody"><tr><td colspan="10" class="empty">Daten werden geladen …</td></tr></tbody>
+      </table>
+    </div>
+    <p class="note">Zeile antippen zum Bearbeiten. Einträge mit Quelle „Gmail“ stammen aus Bestätigungsmails von Merkur bzw. myUNIQA und brauchen noch Person, Arzt und Betrag aus dem jeweiligen Portal.</p>
+  </section>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<form class="panel" id="panel" hidden autocomplete="off">
+  <div class="row"><h2 id="pTitle">Rechnung</h2><button type="button" id="pClose">Schließen</button></div>
+  <fieldset><legend>Rechnung</legend>
+    <label>Behandlungsdatum<input type="date" id="i_datum"></label>
+    <label>Person<input id="i_person" list="personen" placeholder="z. B. Tobias"></label>
+    <label class="full">Arzt / Therapeut<input id="i_arzt" placeholder="Name, Ordination"></label>
+    <label>Fachrichtung / Leistung<input id="i_fach" placeholder="z. B. Physiotherapie"></label>
+    <label>Rechnungsbetrag €<input id="i_betrag" type="number" step="0.01" min="0" inputmode="decimal"></label>
+  </fieldset>
+  <fieldset><legend>BVAEB (meineSV)</legend>
+    <label>Eingereicht am<input type="date" id="i_sv_eingereicht"></label>
+    <label>Erstattet am<input type="date" id="i_sv_datum"></label>
+    <label>Erstattet €<input id="i_sv_betrag" type="number" step="0.01" min="0" inputmode="decimal"></label>
+    <label>Nicht zuständig<select id="i_sv_na"><option value="">nein</option><option value="1">ja, direkt an Zusatzvers.</option></select></label>
+  </fieldset>
+  <fieldset><legend>Zusatzversicherung</legend>
+    <label class="full">Versicherung<select id="i_zv_ges"><option value="">automatisch nach Person</option><option>Merkur</option><option>UNIQA</option></select></label>
+    <label>Eingereicht am<input type="date" id="i_zv_eingereicht"></label>
+    <label>Erstattet am<input type="date" id="i_zv_datum"></label>
+    <label>Erstattet €<input id="i_zv_betrag" type="number" step="0.01" min="0" inputmode="decimal"></label>
+    <label>Referenz / Akt-Nr.<input id="i_referenz"></label>
+  </fieldset>
+  <label class="full">Notiz<textarea id="i_notiz" rows="3"></textarea></label>
+  <div class="row">
+    <button type="button" class="danger" id="pDelete">Löschen</button>
+    <button type="submit" class="primary" id="pSave">Speichern</button>
+  </div>
+  <p class="note" id="pDelHint" hidden>Nochmal „Löschen“ tippen, um den Eintrag endgültig zu entfernen.</p>
+</form>
+
+<form class="panel" id="importPanel" hidden>
+  <div class="row"><h2>Liste einfügen</h2><button type="button" id="iClose">Schließen</button></div>
+  <p class="note">Aus Excel oder der meineSV-Übersicht kopieren und hier einfügen. Eine Zeile pro Rechnung, Spalten mit Tab oder Strichpunkt getrennt, in dieser Reihenfolge:<br><code>Behandlungsdatum; Person; Arzt; Fach; Betrag; BVAEB eingereicht; BVAEB erstattet €; BVAEB Datum; Zusatzvers. eingereicht; Zusatzvers. erstattet €; Zusatzvers. Datum; Versicherung (Merkur/UNIQA, optional)</code><br>Datumsformat 12.03.2026 oder 2026-03-12. Leere Spalten sind erlaubt. Ohne Versicherungsspalte gilt: Tobias → UNIQA, alle anderen → Merkur. Doppelte Zeilen meldet die Prüfung.</p>
+  <label class="full">Daten<textarea id="importText" rows="10" placeholder="12.03.2026;Tobias;Dr. Muster;Orthopädie;120,00;20.03.2026;48,00;15.04.2026;;;"></textarea></label>
+  <div class="row"><span class="note" id="importInfo"></span><button type="submit" class="primary">Importieren</button></div>
+</form>
+
+<datalist id="personen"></datalist>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+const COL = "eintraege";
+const NACHFRAGE_TAGE = 56; // 8 Wochen ohne Erstattung → nachfragen
+const $ = id => document.getElementById(id);
+let db = null, rows = [], filter = "alle", editId = null, delArmed = false;
+
+const eur = n => (n == null || isNaN(n)) ? "–" : n.toLocaleString("de-AT",{style:"currency",currency:"EUR"});
+const num = v => { if (v === "" || v == null) return null; const n = typeof v === "number" ? v : parseFloat(String(v).replace(/\s/g,"").replace(/\.(?=\d{3}(\D|$))/g,"").replace(",", ".")); return isNaN(n) ? null : Math.round(n*100)/100; };
+const fmtD = s => s ? s.split("-").reverse().join(".") : "–";
+const parseD = s => { s = (s||"").trim(); if (!s) return ""; let m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/); if (m) { let y = m[3].length === 2 ? "20"+m[3] : m[3]; return `${y}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`; } m = s.match(/^\d{4}-\d{2}-\d{2}$/); return m ? s : ""; };
+const daysSince = s => s ? Math.floor((Date.now() - new Date(s+"T00:00:00").getTime())/864e5) : null;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function toast(t){ const el=$("toast"); el.textContent=t; el.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>el.hidden=true,2600); }
+
+// ---------- Zusatzversicherung je Person ----------
+const isTobias = p => /^tobias\b|^tobi\b|^papa\b/i.test((p||"").trim());
+const zvOf = r => r.zv_ges || (r.person ? (isTobias(r.person) ? "UNIQA" : "Merkur") : (r.quelle_ges || "Merkur"));
+
+// ---------- Status ----------
+function status(r){
+  if (!r.arzt || r.betrag == null) return {k:"ergaenzen", label:"Daten ergänzen", cls:"p-info"};
+  if (!r.sv_na){
+    if (!r.sv_eingereicht) return {k:"sv_einreichen", label:"BVAEB einreichen", cls:"p-bad"};
+    if (r.sv_betrag == null) return {k:"sv_offen", label:"BVAEB offen", cls:"p-warn"};
+  }
+  if (!r.zv_eingereicht) return {k:"zv_einreichen", label:zvOf(r)+" einreichen", cls:"p-bad"};
+  if (r.zv_betrag == null) return {k:"zv_offen", label:zvOf(r)+" offen", cls:"p-warn"};
+  return {k:"erledigt", label:"Erledigt", cls:"p-ok"};
+}
+const rest = r => r.betrag == null ? null : Math.round((r.betrag - (r.sv_betrag||0) - (r.zv_betrag||0))*100)/100;
+
+// ---------- Drei Prüfstufen ----------
+function runChecks(list){
+  const out = [];
+  // 1 Plausibilität
+  const over = list.filter(r => r.betrag != null && (r.sv_betrag||0)+(r.zv_betrag||0) > r.betrag + 0.005);
+  const order = list.filter(r => (r.sv_datum && r.sv_eingereicht && r.sv_datum < r.sv_eingereicht) || (r.zv_datum && r.zv_eingereicht && r.zv_datum < r.zv_eingereicht) || (r.datum && r.sv_eingereicht && r.sv_eingereicht < r.datum));
+  const wrongIns = list.filter(r => r.person && r.zv_ges && ((isTobias(r.person) && r.zv_ges==="Merkur") || (!isTobias(r.person) && r.zv_ges==="UNIQA")));
+  const p1 = over.length+order.length+wrongIns.length;
+  out.push({lvl: p1 ? "bad":"ok", title:"Stufe 1 · Plausibilität", text: p1 ? `${over.length} × Erstattungen höher als die Rechnung, ${order.length} × Datum in falscher Reihenfolge, ${wrongIns.length} × falsche Zusatzversicherung (Kinder → Merkur, Tobias → UNIQA).` : "Beträge, Datumsfolgen und Versicherungszuordnung sind stimmig.", ids:[...over,...order,...wrongIns].map(r=>r.id)});
+  // 2 Lücken & Fristen
+  const svLate = list.filter(r => !r.sv_na && r.sv_eingereicht && r.sv_betrag == null && daysSince(r.sv_eingereicht) > NACHFRAGE_TAGE);
+  const zvLate = list.filter(r => r.zv_eingereicht && r.zv_betrag == null && daysSince(r.zv_eingereicht) > NACHFRAGE_TAGE);
+  const zvMissing = list.filter(r => (r.sv_betrag != null || r.sv_na) && !r.zv_eingereicht && r.betrag != null);
+  const gap = svLate.length + zvLate.length + zvMissing.length;
+  out.push({lvl: gap ? "warn":"ok", title:"Stufe 2 · Offene Lücken", text: gap ? `${zvMissing.length} × BVAEB erledigt, aber noch nicht bei Merkur/UNIQA eingereicht. ${svLate.length} × BVAEB und ${zvLate.length} × Zusatzversicherung seit über 8 Wochen ohne Erstattung (nachfragen).` : "Nichts hängt länger als 8 Wochen, nichts wartet auf die Zusatzversicherung.", ids:[...zvMissing,...svLate,...zvLate].map(r=>r.id)});
+  // 3 Dubletten & Vollständigkeit
+  const seen = new Map(), dup = [];
+  list.forEach(r => { if (!r.datum || !r.arzt) return; const k = `${r.datum}|${r.arzt.trim().toLowerCase()}|${r.betrag}`; if (seen.has(k)) dup.push(r, seen.get(k)); else seen.set(k, r); });
+  const incomplete = list.filter(r => !r.arzt || r.betrag == null);
+  out.push({lvl: dup.length ? "bad" : incomplete.length ? "info":"ok", title:"Stufe 3 · Dubletten & Vollständigkeit", text: `${new Set(dup.map(r=>r.id)).size} mögliche Doppelerfassungen. ${incomplete.length} Einträge ohne Arzt oder Betrag.`, ids:[...new Set([...dup,...incomplete].map(r=>r.id))]});
+  return out;
+}
+let checkIds = null;
+
+// ---------- Render ----------
+const TABS = [["alle","Alle"],["ergaenzen","Ergänzen"],["sv_einreichen","BVAEB einreichen"],["sv_offen","BVAEB offen"],["zv_einreichen","Zusatzvers. einreichen"],["zv_offen","Zusatzvers. offen"],["erledigt","Erledigt"]];
+function render(){
+  const gf = $("fGes").value;
+  const list = rows.map(r => ({...r, _s: status(r), _rest: rest(r), _zv: zvOf(r)})).filter(r => !gf || r._zv===gf);
+  // KPIs
+  const sum = f => list.reduce((a,r)=>a+(r[f]||0),0);
+  $("kTotal").textContent = eur(sum("betrag"));
+  $("kSV").textContent = eur(sum("sv_betrag"));
+  $("kZV").textContent = eur(list.filter(r=>r._zv==="Merkur").reduce((a,r)=>a+(r.zv_betrag||0),0));
+  $("kUQ").textContent = eur(list.filter(r=>r._zv==="UNIQA").reduce((a,r)=>a+(r.zv_betrag||0),0));
+  $("kRest").textContent = eur(list.filter(r=>r._s.k==="erledigt").reduce((a,r)=>a+(r._rest||0),0));
+  $("kOpen").textContent = list.filter(r=>r._s.k!=="erledigt").length;
+  // Checks
+  const checks = runChecks(list);
+  const bad = new Set(checks.filter(c=>c.lvl==="bad").flatMap(c=>c.ids));
+  $("checks").innerHTML = checks.map((c,i)=>`<div class="check ${c.lvl}"><span class="n">${c.lvl==="ok"?"✓":c.ids.length}</span><div><strong>${c.title}</strong><small>${esc(c.text)}</small></div>${c.ids.length?`<button type="button" data-check="${i}">Zeigen</button>`:""}</div>`).join("");
+  $("checks").querySelectorAll("[data-check]").forEach(b => b.onclick = () => { checkIds = new Set(checks[+b.dataset.check].ids); filter="alle"; render(); toast("Gefiltert auf betroffene Einträge"); });
+  // Tabs
+  const cnt = k => k==="alle" ? list.length : list.filter(r=>r._s.k===k).length;
+  $("tabs").innerHTML = TABS.map(([k,l])=>`<button type="button" class="tab" aria-pressed="${filter===k && !checkIds}" data-k="${k}">${l}<span class="c">${cnt(k)}</span></button>`).join("") + (checkIds?`<button type="button" class="tab" aria-pressed="true" data-k="__clear">Prüfauswahl ✕</button>`:"");
+  $("tabs").querySelectorAll(".tab").forEach(b => b.onclick = () => { if (b.dataset.k!=="__clear") filter=b.dataset.k; checkIds=null; render(); });
+  // Personen
+  const persons = [...new Set(list.map(r=>r.person).filter(Boolean))].sort();
+  const sel = $("fPerson"), cur = sel.value;
+  sel.innerHTML = `<option value="">Alle Personen</option>` + persons.map(p=>`<option${p===cur?" selected":""}>${esc(p)}</option>`).join("");
+  $("personen").innerHTML = persons.map(p=>`<option value="${esc(p)}">`).join("");
+  // Tabelle
+  const q = $("fSearch").value.trim().toLowerCase(), pf = sel.value;
+  let shown = list.filter(r => (checkIds ? checkIds.has(r.id) : (filter==="alle" || r._s.k===filter)) && (!pf || r.person===pf) && (!q || [r.arzt,r.fach,r.notiz,r.referenz,r.person].join(" ").toLowerCase().includes(q)));
+  shown.sort((a,b)=> (b.datum||b.zv_eingereicht||b.sv_eingereicht||"").localeCompare(a.datum||a.zv_eingereicht||a.sv_eingereicht||""));
+  const tb = $("tbody");
+  if (!rows.length){ tb.innerHTML = `<tr><td colspan="10" class="empty">Noch keine Rechnungen. Mit „+ Rechnung erfassen“ oder „Liste einfügen“ die erste anlegen.</td></tr>`; return; }
+  if (!shown.length){ tb.innerHTML = `<tr><td colspan="10" class="empty">Keine Einträge für diesen Filter.</td></tr>`; return; }
+  tb.innerHTML = shown.map(r => `<tr data-id="${r.id}">
+    <td class="d">${fmtD(r.datum)}</td>
+    <td>${esc(r.person||"–")}</td>
+    <td>${esc(r.arzt||"— nachtragen")}${bad.has(r.id)?'<span class="flag" title="Prüfung schlägt an">!</span>':""}<span class="sub">${esc(r.fach||"")}${r.quelle?` · Quelle: ${esc(r.quelle)}`:""}</span></td>
+    <td class="num">${eur(r.betrag)}</td>
+    <td class="d">${r.sv_na?"nicht zuständig":fmtD(r.sv_eingereicht)}</td>
+    <td class="num">${eur(r.sv_betrag)}<span class="sub">${r.sv_datum?fmtD(r.sv_datum):""}</span></td>
+    <td class="d">${fmtD(r.zv_eingereicht)}<span class="sub">${r._zv}${r.referenz?` · ${esc(r.referenz)}`:""}</span></td>
+    <td class="num">${eur(r.zv_betrag)}<span class="sub">${r.zv_datum?fmtD(r.zv_datum):""}</span></td>
+    <td class="num">${eur(r._rest)}</td>
+    <td><span class="pill ${r._s.cls}">${r._s.label}</span></td></tr>`).join("");
+  tb.querySelectorAll("tr[data-id]").forEach(tr => tr.onclick = () => openPanel(tr.dataset.id));
+}
+
+// ---------- Panel ----------
+const FIELDS = ["datum","person","arzt","fach","betrag","sv_eingereicht","sv_datum","sv_betrag","sv_na","zv_ges","zv_eingereicht","zv_datum","zv_betrag","referenz","notiz"];
+const NUMF = new Set(["betrag","sv_betrag","zv_betrag"]);
+function openPanel(id){
+  editId = id || null; delArmed = false; $("pDelHint").hidden = true;
+  const r = rows.find(x=>x.id===id) || {};
+  FIELDS.forEach(f => { const el = $("i_"+f); el.value = f==="sv_na" ? (r.sv_na?"1":"") : (r[f] ?? ""); });
+  $("pTitle").textContent = id ? "Rechnung bearbeiten" : "Neue Rechnung";
+  $("pDelete").hidden = !id;
+  $("scrim").hidden = false; $("panel").hidden = false; $("i_arzt").focus();
+}
+function closePanels(){ $("scrim").hidden = true; $("panel").hidden = true; $("importPanel").hidden = true; }
+$("pClose").onclick = closePanels; $("iClose").onclick = closePanels; $("scrim").onclick = closePanels;
+document.addEventListener("keydown", e => { if (e.key==="Escape") closePanels(); });
+$("btnNew").onclick = () => openPanel(null);
+$("panel").addEventListener("submit", async e => {
+  e.preventDefault(); if (!db) return toast("Speichern nicht möglich: Datenspeicher nicht verbunden");
+  const d = {};
+  FIELDS.forEach(f => { const v = $("i_"+f).value; d[f] = f==="sv_na" ? v==="1" : NUMF.has(f) ? num(v) : v.trim(); });
+  d.geaendert = new Date().toISOString();
+  try {
+    if (editId) await db.collection(COL).doc(editId).update(d);
+    else await db.collection(COL).add({...d, quelle:"manuell", erstellt:d.geaendert});
+    closePanels(); toast("Gespeichert");
+  } catch(err){ toast("Nicht gespeichert: " + (err.message||err.code)); }
+});
+$("pDelete").onclick = async () => {
+  if (!delArmed){ delArmed = true; $("pDelHint").hidden = false; return; }
+  try { await db.collection(COL).doc(editId).delete(); closePanels(); toast("Gelöscht"); } catch(err){ toast("Nicht gelöscht: " + (err.message||err.code)); }
+};
+
+// ---------- Import ----------
+$("btnImport").onclick = () => { $("scrim").hidden=false; $("importPanel").hidden=false; $("importText").focus(); };
+$("importPanel").addEventListener("submit", async e => {
+  e.preventDefault(); if (!db) return toast("Import nicht möglich: Datenspeicher nicht verbunden");
+  const lines = $("importText").value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  let ok = 0, skip = 0;
+  for (const line of lines){
+    const c = line.split(/\t|;/).map(s=>s.trim());
+    if (/datum/i.test(c[0])) { skip++; continue; } // Kopfzeile
+    const d = { datum:parseD(c[0]), person:c[1]||"", arzt:c[2]||"", fach:c[3]||"", betrag:num(c[4]),
+      sv_eingereicht:parseD(c[5]), sv_betrag:num(c[6]), sv_datum:parseD(c[7]),
+      zv_eingereicht:parseD(c[8]), zv_betrag:num(c[9]), zv_datum:parseD(c[10]),
+      zv_ges: /uniqa/i.test(c[11]||"") ? "UNIQA" : /merkur/i.test(c[11]||"") ? "Merkur" : "",
+      sv_na:false, referenz:"", notiz:"", quelle:"Import", erstellt:new Date().toISOString() };
+    if (!d.datum && !d.arzt){ skip++; continue; }
+    try { await db.collection(COL).add(d); ok++; } catch { skip++; }
+  }
+  $("importInfo").textContent = `${ok} importiert, ${skip} übersprungen.`;
+  if (ok){ $("importText").value=""; toast(`${ok} Rechnungen importiert`); }
+});
+
+// ---------- Export ----------
+$("btnExport").onclick = async () => {
+  const head = ["Behandlung","Person","Arzt","Fach","Rechnung","BVAEB eingereicht","BVAEB erstattet","BVAEB Datum","Zusatzversicherung","ZV eingereicht","ZV erstattet","ZV Datum","Rest","Status","Referenz","Notiz"];
+  const n = v => v==null?"":String(v).replace(".",",");
+  const q = v => `"${String(v??"").replace(/"/g,'""')}"`;
+  const lines = rows.map(r => [fmtD(r.datum),r.person,r.arzt,r.fach,n(r.betrag),fmtD(r.sv_eingereicht),n(r.sv_betrag),fmtD(r.sv_datum),zvOf(r),fmtD(r.zv_eingereicht),n(r.zv_betrag),fmtD(r.zv_datum),n(rest(r)),status(r).label,r.referenz,r.notiz].map(q).join(";"));
+  const csv = "﻿" + [head.map(q).join(";"), ...lines].join("\r\n");
+  try {
+    const dl = await claude.use("downloads");
+    if (!dl) return toast("Download ist in dieser Ansicht nicht verfügbar");
+    await dl.save({filename:`arztrechnungen-${new Date().toISOString().slice(0,10)}.csv`, data:new Blob([csv],{type:"text/csv"})});
+  } catch(err){ if (err?.code!=="declined") toast("Export abgebrochen"); }
+};
+
+$("fSearch").oninput = render; $("fPerson").onchange = render; $("fGes").onchange = render;
+
+// ---------- Daten ----------
+render();
+const timer = setTimeout(() => { if (!db){ $("banner").textContent = "Datenspeicher antwortet nicht. Bitte angemeldet bei claude.ai öffnen."; $("banner").hidden = false; $("tbody").innerHTML = `<tr><td colspan="10" class="empty">Keine Verbindung zum Datenspeicher.</td></tr>`; } }, 10000);
+(async () => {
+  try { db = await (window.claude?.use ? claude.use("db") : null); } catch { db = null; }
+  if (!db){ clearTimeout(timer); $("banner").textContent = "Datenspeicher nicht verfügbar. Nur der Eigentümer dieser Seite kann die Rechnungen sehen und bearbeiten."; $("banner").hidden = false; $("tbody").innerHTML = `<tr><td colspan="10" class="empty">Keine Daten in dieser Ansicht.</td></tr>`; return; }
+  db.collection(COL).onSnapshot(snap => {
+    clearTimeout(timer); $("banner").hidden = true;
+    rows = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    render();
+  }, err => { clearTimeout(timer); $("banner").textContent = "Fehler beim Laden: " + (err.message||err.code); $("banner").hidden = false; });
+})();
+})();
+</script>
